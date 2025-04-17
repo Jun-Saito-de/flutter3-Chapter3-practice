@@ -47,55 +47,133 @@ class _MyHomePageState extends State<MyHomePage> {
 
 // SampleGameクラス: FlameGameを継承してゲームのロジックを実装
 class SampleGame extends FlameGame with TapCallbacks {
-  late final MySprite _sprite;
+  // SampleGame（親クラス）の位置を規定。今後の子クラスの位置指定のゴール基準となる
+  Vector2 _position = Vector2(100, 100);
+  //
+  final List<PositionComponent> _sprites = <PositionComponent>[];
 
   @override
-  Color backgroundColor() => const Color(0xffccffff); // ゲーム画面の背景色を設定
+  // 背景色
+  Color backgroundColor() => const Color(0xffCCCCFF);
 
   @override
+  // 初期化
   Future<void> onLoad() async {
-    await super.onLoad();  // 親クラスFlameGameのonLoadメソッドを呼び出す
-    _sprite = MySprite(Vector2(100, 100));
-    add(_sprite);  // MySpriteを位置(100, 100)でゲームに追加
+    await super.onLoad();
+    // sp1を規定。緑の四角。位置をベクトルで指定し横200、縦100に配置される
+    var sp1 = GreenRectSprite(Vector2(200, 100));
+    // スプライトに追加
+    _sprites.add(sp1);
+    // ゲーム画面に追加
+    add(sp1);
+    // sp2を規定。赤の丸。位置をベクトルで指定し縦200、横100に配置される
+    var sp2 = RedCircleSprite(Vector2(100, 200));
+    // スプライトに追加
+    _sprites.add(sp2);
+    // ゲーム画面に追加
+    add(sp2);
+    // ゲーム画面に追加（白いテキスト。縦横25ずつの開始位置）
+    add(WhiteTextSprite(Vector2(25, 25)));
   }
 
+  // このコンポーネントがタップされたと教えてくれる関数
   @override
   void onTapDown(TapDownEvent event) {
-    _sprite._position = event.canvasPosition;
+    // タップされた位置を_positionで指定
+    // キャンバスポジションから縦横50を引いた値（四角と●の半径が50のため、それらの図形の中心を意味する）
+    _position = event.canvasPosition - Vector2(50, 50);
     super.onTapDown(event);
   }
 }
 
-// MySpriteクラス: SpriteComponentを継承してキャラクターのスプライトを作成
-class MySprite extends SpriteComponent with TapCallbacks{
-  late Vector2 _position;  // スプライトの位置を格納する変数
+// 円コンポーネント
+class RedCircleSprite extends CircleComponent
+    // ゲーム画面に用意したポジションを使用
+    with HasGameRef<SampleGame> {
+  // スプライトの位置を格納する変数
+  late Vector2 _position;
 
-
-  // コンストラクタ: 位置（_position）を指定してMySpriteを初期化
-  MySprite(this._position):super();
+  RedCircleSprite(this._position): super();
 
   @override
   Future<void> onLoad() async {
-    await super.onLoad();  // 親クラスのonLoadメソッドを呼び出す
-    sprite = await Sprite.load('chara.png');  // 'chara.png'をスプライト画像としてロード
-    position = _position;  // スプライトの位置を設定
-    size = Vector2(100, 100);  // スプライトのサイズを100x100に設定
-    anchor= Anchor.center;
+    await super.onLoad();
+    // 赤い円に
+    setColor(Colors.red);
+    position = _position;
+    // _positionを位置に
+    size = Vector2(100, 100);
   }
 
   @override
   void update(double delta) {
-    // d	移動方向と距離（毎回変化）
-    // 今の位置と目標の差（方向と距離）」を計算。20で割って超ゆっくりに
-    final d = (_position - position) / 20;
-    // d は「20分の1の差」なので、これをそのまま足すと超ゆっくりになります。
-    // だから調整用に delta * 100 をかけて速度をチューニングしています！
+    // スプライト側からゲーム画面側の情報を取り出す
+    // 移動方向と距離を定義
+    // 1フレームごとの移動距離はゲーム画面側の位置 - 今の位置 ÷　10
+    final d = (gameRef._position - position) / 10;
+    // 上記を100倍にして自然なスピードにする
     position += d * delta * 100;
-    super.update(delta);  // 毎フレームの更新処理を呼び出す
+    super.update(delta);
+  }
+}
+
+// 四角形の描画コンポーネント
+// PositionComponentを使用
+class GreenRectSprite extends PositionComponent
+    with HasGameRef<SampleGame>{
+  late Vector2 _position;  // スプライトの位置を格納する変数
+  late Paint _paint;  // スプライトの描画を格納する変数
+
+  GreenRectSprite(this._position): super();
+
+  @override
+  // PositionComponentの設定
+  Future<void> onLoad() async {
+    await super.onLoad();
+    position = _position;  // _positionをpositionとして使えるようにする
+    size = Vector2(100, 100);
+    _paint = Paint()  // Paintメソッド
+      ..style = PaintingStyle.fill
+      ..color = Colors.green;
   }
 
-  void onTapDown(TapDownEvent event) {
-    _position = Vector2.zero();
-    position = Vector2.zero();
+  @override
+  void update(double delta) {
+    // 1フレームごとの移動距離はゲーム画面側の位置 - 今の位置 ÷　50
+    final d = (gameRef._position - position) / 50;
+    position += d * delta * 100;
+    super.update(delta);
+  }
+
+  @override
+  // 描画を行うためのクラス
+  void render(Canvas canvas) {
+    super.render(canvas);
+    // 描画領域を定義
+    final r = Rect.fromLTWH(0, 0, 100, 100);
+    // 描画
+    canvas.drawRect(r, _paint);
+  }
+}
+
+// テキストコンポーネント
+class WhiteTextSprite extends TextComponent {
+  late Vector2 _position;// スプライトの位置を格納する変数
+
+  WhiteTextSprite(this._position): super();
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    position = _position; // 位置はキャンバスのポジション
+    // 以下テキストの中身とスタイル
+    text = "Hello Flame!";
+    textRenderer = TextPaint(
+      style: TextStyle(
+        fontSize: 48.0,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+    );
   }
 }
